@@ -43,10 +43,10 @@ os.makedirs(LOG_DIR, exist_ok=True)  # Création du répertoire s'il n'existe pa
 SOURCES = [
     # Sites avec modules de scraping implémentés
     {
-        'name': 'SosAccessoire',
-        'website': 'https://www.sos-accessoire.com/',
+        'name': '1001pieces',
+        'website': 'https://www.1001pieces.com/',
         'enabled': True,
-        'module': 'scraper.sources.sosaccessoire'
+        'module': 'scraper.sources.1001pieces'
     }
 ]
 
