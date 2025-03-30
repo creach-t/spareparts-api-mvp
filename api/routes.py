@@ -3,10 +3,16 @@ from flask_restful import Api, Resource
 from database.models import Part, Supplier, Availability, ApiKey
 from database.db import db_session
 from api.auth import auth, generate_api_key
-from sqlalchemy import or_
+from sqlalchemy import or_, and_, join
 import logging
 from datetime import datetime
 import re
+import sys
+import os
+
+# Ajout du répertoire parent au sys.path pour pouvoir importer config
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import config
 
 # Configuration du logging
 logger = logging.getLogger('spareparts-api.routes')
@@ -36,17 +42,26 @@ class PartsList(Resource):
             # Récupération des paramètres de requête
             category = request.args.get('category')
             keyword = request.args.get('keyword')
-            limit = min(int(request.args.get('limit', 50)), 100)  # Maximum 100 résultats
-            offset = max(int(request.args.get('offset', 0)), 0)  # Minimum 0
+            
+            # Validation et protection contre les injections SQL
+            try:
+                limit = min(int(request.args.get('limit', 50)), 100)  # Maximum 100 résultats
+                offset = max(int(request.args.get('offset', 0)), 0)  # Minimum 0
+            except (ValueError, TypeError):
+                return {'error': 'Les paramètres limit et offset doivent être des nombres entiers'}, 400
             
             # Construction de la requête de base
             query = Part.query
             
             # Application des filtres
             if category:
+                # Échapper les caractères spéciaux pour éviter les injections
+                category = re.escape(category)
                 query = query.filter(Part.category == category)
             
             if keyword:
+                # Échapper les caractères spéciaux pour éviter les injections
+                keyword = re.escape(keyword)
                 query = query.filter(
                     or_(
                         Part.name.ilike(f'%{keyword}%'),
@@ -97,6 +112,9 @@ class PartsSearch(Resource):
             if not reference:
                 return {'error': 'Le paramètre reference est requis'}, 400
             
+            # Validation pour éviter les injections
+            reference = re.escape(reference)
+            
             # Recherche des pièces par référence (correspondance partielle)
             parts = Part.query.filter(Part.reference.ilike(f'%{reference}%')).all()
             
@@ -129,6 +147,14 @@ class PartDetail(Resource):
             JSON: Détails de la pièce
         """
         try:
+            # Validation de l'ID
+            try:
+                part_id = int(part_id)
+                if part_id <= 0:
+                    raise ValueError("ID invalide")
+            except (ValueError, TypeError):
+                return {'error': 'ID de pièce invalide'}, 400
+                
             part = Part.query.get(part_id)
             
             if not part:
@@ -160,13 +186,27 @@ class PartAvailability(Resource):
             JSON: Disponibilité et prix de la pièce
         """
         try:
+            # Validation de l'ID
+            try:
+                part_id = int(part_id)
+                if part_id <= 0:
+                    raise ValueError("ID invalide")
+            except (ValueError, TypeError):
+                return {'error': 'ID de pièce invalide'}, 400
+                
+            # Récupération de la pièce avec optimisation des requêtes
             part = Part.query.get(part_id)
             
             if not part:
                 return {'error': 'Pièce non trouvée'}, 404
             
-            # Récupération des disponibilités
-            availabilities = Availability.query.filter_by(part_id=part_id).all()
+            # Récupération des disponibilités avec jointure pour éviter requêtes N+1
+            # Chargement à la fois des relations supplier pour chaque disponibilité
+            availabilities = Availability.query.join(
+                Supplier, Availability.supplier_id == Supplier.id
+            ).filter(
+                Availability.part_id == part_id
+            ).all()
             
             # Conversion en dictionnaire pour la sérialisation JSON
             availability_data = [availability.to_dict() for availability in availabilities]
@@ -245,8 +285,8 @@ class GenerateApiKey(Resource):
             if not name or not email or not secret:
                 return {'error': 'Nom, email et secret requis'}, 400
             
-            # Vérification du secret (à remplacer par une méthode plus sécurisée)
-            if secret != 'dev-secret-key-change-me':  # À changer en production
+            # Vérification du secret en utilisant la valeur de config
+            if secret != config.API_KEY_GENERATION_SECRET:
                 return {'error': 'Secret invalide'}, 403
             
             # Validation de l'email
