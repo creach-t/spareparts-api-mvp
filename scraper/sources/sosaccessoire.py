@@ -34,7 +34,7 @@ def scrape(search_terms=None, max_pages=3):
         
         for page in range(1, max_pages + 1):
             try:
-                url = f"https://www.sosaccessoire.com/recherche?controller=search&s={term}&page={page}"
+                url = f"https://www.sos-accessoire.com/recherche?search_query={term}&p={page}"
                 response = requests.get(
                     url,
                     headers={'User-Agent': config.SCRAPER_USER_AGENT},

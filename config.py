@@ -47,38 +47,6 @@ SOURCES = [
         'website': 'https://www.sos-accessoire.com/',
         'enabled': True,
         'module': 'scraper.sources.sosaccessoire'
-    },
-    {
-        'name': 'PiecesAuto24',
-        'website': 'https://www.piecesauto24.com/',
-        'enabled': True,
-        'module': 'scraper.sources.piecesauto24'
-    },
-    
-    # Sites à implémenter dans le futur
-    {
-        'name': 'Spareka',
-        'website': 'https://www.spareka.fr/',
-        'enabled': False,  # Désactivé car le module n'existe pas encore
-        'module': 'scraper.sources.spareka'
-    },
-    {
-        'name': 'PiecesOnline',
-        'website': 'https://www.pieces-online.com/',
-        'enabled': False,  # Désactivé car le module n'existe pas encore
-        'module': 'scraper.sources.piecesonline'
-    },
-    {
-        'name': 'Adepem',
-        'website': 'https://www.adepem.com/',
-        'enabled': False,  # Désactivé car le module n'existe pas encore
-        'module': 'scraper.sources.adepem'
-    },
-    {
-        'name': 'JeRemplace',
-        'website': 'https://www.jeremplace.com/',
-        'enabled': False,  # Désactivé car le module n'existe pas encore
-        'module': 'scraper.sources.jeremplace'
     }
 ]
 
