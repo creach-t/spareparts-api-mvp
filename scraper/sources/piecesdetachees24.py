@@ -62,7 +62,7 @@ def scrape(search_terms=None, max_pages=3):
                         # Référence (numéro d'article)
                         reference_elem = product.select_one('.product-item-articlenumber')
                         if reference_elem:
-                            item['reference'] = reference_elem.text.strip().replace('Numéro d'article: ', '')
+                            item['reference'] = reference_elem.text.strip().replace("Numéro d'article: ", "")
                         else:
                             # Si pas de référence, on passe au produit suivant
                             continue
