@@ -3,6 +3,7 @@ import os
 import sys
 import logging
 import json
+import importlib
 
 # Ajout du répertoire parent au sys.path pour pouvoir importer config et database
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -10,7 +11,6 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
 from database.db import db_session, init_db
 from database.models import Part, Supplier, Availability
-from scraper.sources.1001pieces import scrape as scrape_1001pieces
 
 # Configuration du logging
 logging.basicConfig(
@@ -38,9 +38,13 @@ def debug_scraper():
         db_session.add(supplier)
         db_session.commit()
     
+    # Importation dynamique du module (car le nom commence par un chiffre)
+    logger.info("Importation du module scraper.sources.1001pieces...")
+    scraper_module = importlib.import_module("scraper.sources.1001pieces")
+    
     # Scraper seulement une catégorie pour tester
     logger.info("Lancement du scraper 1001pieces (seulement pour 'refrigerateur')...")
-    results = scrape_1001pieces(search_terms=['refrigerateur'], max_pages=1)
+    results = scraper_module.scrape(search_terms=['refrigerateur'], max_pages=1)
     
     logger.info(f"Scraping terminé, {len(results)} produits extraits")
     
