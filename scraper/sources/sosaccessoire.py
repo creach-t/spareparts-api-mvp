@@ -5,12 +5,45 @@ import time
 import logging
 import sys
 import os
+import random
+import backoff
 
 # Ajout du répertoire parent au sys.path pour pouvoir importer config
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 import config
 
 logger = logging.getLogger('spareparts-scraper.sosaccessoire')
+
+# Liste des User-Agents pour alterner et éviter la détection
+USER_AGENTS = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:95.0) Gecko/20100101 Firefox/95.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.1 Safari/605.1.15',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36 Edg/96.0.1054.62',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36',
+]
+
+# Décorateur de retentative avec backoff exponentiel
+@backoff.on_exception(
+    backoff.expo,
+    (requests.exceptions.RequestException, ConnectionError),
+    max_tries=5,
+    giveup=lambda e: isinstance(e, requests.exceptions.HTTPError) and e.response.status_code == 404
+)
+def make_request(url, headers):
+    """
+    Effectue une requête HTTP avec gestion des erreurs et retry
+    
+    Args:
+        url (str): URL à scraper
+        headers (dict): Headers HTTP à utiliser
+        
+    Returns:
+        requests.Response: Réponse HTTP
+    """
+    response = requests.get(url, headers=headers, timeout=config.SCRAPER_TIMEOUT)
+    response.raise_for_status()
+    return response
 
 def scrape(search_terms=None, max_pages=3):
     """
@@ -35,15 +68,35 @@ def scrape(search_terms=None, max_pages=3):
         for page in range(1, max_pages + 1):
             try:
                 url = f"https://www.sos-accessoire.com/recherche?search_query={term}&p={page}"
-                response = requests.get(
-                    url,
-                    headers={'User-Agent': config.SCRAPER_USER_AGENT},
-                    timeout=config.SCRAPER_TIMEOUT
-                )
                 
-                if response.status_code != 200:
-                    logger.warning(f"Erreur HTTP {response.status_code} pour {url}")
-                    break
+                # Utiliser un User-Agent aléatoire
+                user_agent = random.choice(USER_AGENTS)
+                headers = {
+                    'User-Agent': user_agent,
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                    'Accept-Language': 'fr,fr-FR;q=0.8,en-US;q=0.5,en;q=0.3',
+                    'DNT': '1',
+                    'Connection': 'keep-alive',
+                    'Upgrade-Insecure-Requests': '1',
+                    'Cache-Control': 'max-age=0',
+                }
+                
+                # Ajouter un délai aléatoire pour simuler un comportement humain
+                wait_time = config.SCRAPER_DELAY + random.uniform(1.0, 3.0)
+                logger.debug(f"Attente de {wait_time:.2f} secondes avant la requête")
+                time.sleep(wait_time)
+                
+                try:
+                    response = make_request(url, headers)
+                except requests.exceptions.HTTPError as e:
+                    if e.response.status_code == 403:
+                        logger.warning(f"Erreur HTTP 403 pour {url} - Le site bloque probablement le scraping")
+                        logger.info(f"Attente plus longue avant la prochaine tentative...")
+                        time.sleep(random.uniform(10.0, 15.0))  # Attente plus longue
+                        continue
+                    else:
+                        logger.warning(f"Erreur HTTP {e.response.status_code} pour {url}")
+                        break
                 
                 soup = BeautifulSoup(response.content, 'lxml')
                 
@@ -137,9 +190,6 @@ def scrape(search_terms=None, max_pages=3):
                 
                 logger.info(f"Page {page} pour '{term}': {len(products)} produits extraits")
                 
-                # Pause entre les requêtes pour éviter de surcharger le serveur
-                time.sleep(config.SCRAPER_DELAY)
-            
             except Exception as e:
                 logger.error(f"Erreur lors du scraping de la page {page} pour '{term}': {str(e)}")
                 break
