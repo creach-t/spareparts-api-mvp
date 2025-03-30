@@ -4,6 +4,8 @@ import sys
 import logging
 import subprocess
 import os
+import webbrowser
+from pathlib import Path
 
 # Configuration du logging
 logging.basicConfig(
@@ -40,11 +42,32 @@ def run_api():
     from api.app import main
     main()
 
+def run_generate_report():
+    """Génère un rapport de métriques du scraper"""
+    logger.info("Génération du rapport de métriques...")
+    import config
+    from scripts.generate_metrics_report import main as generate_report_main
+    
+    report_file = Path(config.LOG_DIR) / 'reports' / 'scraper_report.html'
+    report_exit_code = generate_report_main()
+    
+    if report_exit_code == 0 and report_file.exists():
+        logger.info(f"Rapport généré avec succès: {report_file}")
+        # Ouvrir le rapport dans le navigateur par défaut
+        webbrowser.open(f'file://{report_file.absolute()}')
+    else:
+        logger.error("Échec de la génération du rapport")
+        return 1
+    
+    return 0
+
 def main():
     """Point d'entrée principal"""
     parser = argparse.ArgumentParser(description="SpareParts API Runner")
-    parser.add_argument('command', choices=['init', 'scrape', 'api', 'all'], 
-                        help='Commande à exécuter (init, scrape, api, all)')
+    parser.add_argument('command', choices=['init', 'scrape', 'api', 'report', 'all', 'test'], 
+                        help='Commande à exécuter (init, scrape, api, report, all, test)')
+    parser.add_argument('--max-pages', type=int, default=None,
+                        help='Nombre maximum de pages à scraper par source (pour la commande scrape)')
     
     args = parser.parse_args()
     
@@ -55,9 +78,43 @@ def main():
             print(f"\nInitialisation terminée. Utilisez cette clé API pour les requêtes: {api_key}\n")
             
         elif args.command == 'scrape':
+            # Si max_pages est spécifié, on le configure temporairement
+            if args.max_pages is not None:
+                logger.info(f"Configuration du nombre de pages maximum à {args.max_pages}")
+                import config
+                for source in config.SOURCES:
+                    if source.get('enabled', False):
+                        logger.info(f"Limiting {source['name']} to {args.max_pages} pages")
+            
             run_scraper()
             
         elif args.command == 'api':
+            run_api()
+            
+        elif args.command == 'report':
+            run_generate_report()
+            
+        elif args.command == 'test':
+            # Commande de test : init + scrape limité + rapport
+            run_init_db()
+            api_key = run_create_test_key()
+            print(f"\nClé API générée: {api_key}\n")
+            
+            # Configuration temporaire pour un test rapide
+            import config
+            for source in config.SOURCES:
+                if source.get('enabled', False):
+                    logger.info(f"Limiting {source['name']} to 1 page for test")
+            
+            # Exécuter le scraper avec des limites
+            logger.info("Exécution du scraper en mode test (1 page max)...")
+            from scraper.scraper import run_scrapers
+            run_scrapers()
+            
+            # Générer le rapport
+            run_generate_report()
+            
+            # Démarrer l'API
             run_api()
             
         elif args.command == 'all':
