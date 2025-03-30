@@ -9,12 +9,12 @@ class Part(Base):
     
     id = Column(Integer, primary_key=True)
     reference = Column(String(50), unique=True, index=True, nullable=False)
-    name = Column(String(200), nullable=False)
+    name = Column(String(200), nullable=False, index=True)  # Ajout d'un index pour les recherches par nom
     description = Column(Text, nullable=True)
-    category = Column(String(100), nullable=True)
+    category = Column(String(100), nullable=True, index=True)  # Ajout d'un index pour les filtres par catégorie
     image_url = Column(String(500), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, index=True)  # Ajout d'un index pour les tris
     
     # Relations
     availabilities = relationship("Availability", back_populates="part", cascade="all, delete-orphan")
@@ -40,7 +40,7 @@ class Supplier(Base):
     __tablename__ = 'suppliers'
     
     id = Column(Integer, primary_key=True)
-    name = Column(String(100), nullable=False, unique=True)
+    name = Column(String(100), nullable=False, unique=True, index=True)  # Ajout d'un index même si unique le fait déjà
     website = Column(String(255), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     
@@ -64,12 +64,12 @@ class Availability(Base):
     __tablename__ = 'availability'
     
     id = Column(Integer, primary_key=True)
-    part_id = Column(Integer, ForeignKey('parts.id'), nullable=False)
-    supplier_id = Column(Integer, ForeignKey('suppliers.id'), nullable=False)
+    part_id = Column(Integer, ForeignKey('parts.id'), nullable=False, index=True)  # Ajout explicite d'un index
+    supplier_id = Column(Integer, ForeignKey('suppliers.id'), nullable=False, index=True)  # Ajout explicite d'un index
     price = Column(Float, nullable=True)
-    in_stock = Column(Boolean, default=False)
+    in_stock = Column(Boolean, default=False, index=True)  # Ajout d'un index pour filtre par disponibilité
     url = Column(String(500), nullable=True)
-    last_checked = Column(DateTime, default=datetime.utcnow)
+    last_checked = Column(DateTime, default=datetime.utcnow, index=True)  # Ajout d'un index pour trier par fraîcheur
     
     # Relations
     part = relationship("Part", back_populates="availabilities")
@@ -78,6 +78,7 @@ class Availability(Base):
     # Index composé pour optimiser les recherches
     __table_args__ = (
         Index('idx_part_supplier', 'part_id', 'supplier_id', unique=True),
+        Index('idx_availability_price', 'price'),  # Ajout d'un index pour trier par prix
     )
     
     def __repr__(self):
@@ -103,8 +104,8 @@ class ApiKey(Base):
     id = Column(Integer, primary_key=True)
     key = Column(String(64), unique=True, nullable=False, index=True)
     name = Column(String(100), nullable=False)
-    email = Column(String(100), nullable=True)
-    active = Column(Boolean, default=True)
+    email = Column(String(100), nullable=True, index=True)  # Ajout d'un index pour les recherches par email
+    active = Column(Boolean, default=True, index=True)  # Ajout d'un index pour filtrer par état
     created_at = Column(DateTime, default=datetime.utcnow)
     last_used = Column(DateTime, nullable=True)
     
