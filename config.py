@@ -40,15 +40,22 @@ LOG_DIR = os.environ.get('LOG_DIR', os.path.join(BASE_DIR, 'logs'))
 os.makedirs(LOG_DIR, exist_ok=True)  # Création du répertoire s'il n'existe pas
 
 # Sources de données (sites à scraper)
-# Note: Pour utiliser ces sources, il faudrait créer les modules correspondants dans scraper/sources/
 SOURCES = [
+    # Sites avec modules de scraping implémentés
     {
         'name': 'SosAccessoire',
         'website': 'https://www.sos-accessoire.com/',
         'enabled': True,
         'module': 'scraper.sources.sosaccessoire'
     },
-    # Nouveaux sites à implémenter
+    {
+        'name': 'PiecesAuto24',
+        'website': 'https://www.piecesauto24.com/',
+        'enabled': True,
+        'module': 'scraper.sources.piecesauto24'
+    },
+    
+    # Sites à implémenter dans le futur
     {
         'name': 'Spareka',
         'website': 'https://www.spareka.fr/',
