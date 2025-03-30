@@ -1,0 +1,21 @@
+# Scraping
+beautifulsoup4==4.12.2
+requests==2.31.0
+requests-html==0.10.0
+lxml==4.9.3
+
+# Base de données
+SQLAlchemy==2.0.25
+
+# API
+Flask==2.3.3
+Flask-RESTful==0.3.10
+Flask-SQLAlchemy==3.1.1
+Flask-Limiter==3.5.0
+
+# Authentification
+Flask-HTTPAuth==4.8.0
+
+# Utilitaires
+python-dotenv==1.0.0
+schedule==1.2.1
