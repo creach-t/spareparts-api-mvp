@@ -40,18 +40,38 @@ LOG_DIR = os.environ.get('LOG_DIR', os.path.join(BASE_DIR, 'logs'))
 os.makedirs(LOG_DIR, exist_ok=True)  # Création du répertoire s'il n'existe pas
 
 # Sources de données (sites à scraper)
+# Note: Pour utiliser ces sources, il faudrait créer les modules correspondants dans scraper/sources/
 SOURCES = [
     {
-        'name': 'PiecesDetachees24',
-        'website': 'https://www.piecesdetachees24.com/',
-        'enabled': True,
-        'module': 'scraper.sources.piecesdetachees24'
-    },
-    {
         'name': 'SosAccessoire',
-        'website': 'https://www.sosaccessoire.com/',
+        'website': 'https://www.sos-accessoire.com/',
         'enabled': True,
         'module': 'scraper.sources.sosaccessoire'
+    },
+    # Nouveaux sites à implémenter
+    {
+        'name': 'Spareka',
+        'website': 'https://www.spareka.fr/',
+        'enabled': False,  # Désactivé car le module n'existe pas encore
+        'module': 'scraper.sources.spareka'
+    },
+    {
+        'name': 'PiecesOnline',
+        'website': 'https://www.pieces-online.com/',
+        'enabled': False,  # Désactivé car le module n'existe pas encore
+        'module': 'scraper.sources.piecesonline'
+    },
+    {
+        'name': 'Adepem',
+        'website': 'https://www.adepem.com/',
+        'enabled': False,  # Désactivé car le module n'existe pas encore
+        'module': 'scraper.sources.adepem'
+    },
+    {
+        'name': 'JeRemplace',
+        'website': 'https://www.jeremplace.com/',
+        'enabled': False,  # Désactivé car le module n'existe pas encore
+        'module': 'scraper.sources.jeremplace'
     }
 ]
 
