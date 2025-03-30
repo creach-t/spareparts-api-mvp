@@ -22,5 +22,8 @@ python-dotenv==1.0.0
 schedule==1.2.1
 backoff==2.2.1  # Pour les mécanismes de reprise des scrapers
 
+# Visualisation et rapports
+matplotlib==3.8.3
+
 # Tests
 pytest==7.4.0
