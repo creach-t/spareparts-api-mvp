@@ -37,11 +37,13 @@ app.config['SQLALCHEMY_ECHO'] = config.SQLALCHEMY_ECHO
 # Initialisation du limiteur de requêtes - utilisation d'un stockage Redis si disponible
 storage_uri = os.environ.get('RATE_LIMIT_STORAGE', "memory://")
 limiter = Limiter(
-    app,
+    storage_uri=storage_uri,
     key_func=get_remote_address,
-    default_limits=[config.API_RATE_LIMIT],
-    storage_uri=storage_uri
+    default_limits=[config.API_RATE_LIMIT]
 )
+
+# Attach limiter to app
+limiter.init_app(app)
 
 # Enregistrement du blueprint API
 app.register_blueprint(api_bp, url_prefix='/api')
