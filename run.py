@@ -36,6 +36,13 @@ def run_scraper():
     run_scrapers()
     logger.info("Scraping terminé")
 
+def run_debug_scraper():
+    """Exécute le scraper en mode debug"""
+    logger.info("Démarrage du scraper en mode debug...")
+    from scripts.debug_scraper import debug_scraper
+    debug_scraper()
+    logger.info("Scraping debug terminé")
+
 def run_api():
     """Exécute l'API"""
     logger.info("Démarrage de l'API...")
@@ -71,8 +78,8 @@ def run_generate_report():
 def main():
     """Point d'entrée principal"""
     parser = argparse.ArgumentParser(description="SpareParts API Runner")
-    parser.add_argument('command', choices=['init', 'scrape', 'api', 'report', 'test', 'all', 'testdata'], 
-                        help='Commande à exécuter (init, scrape, api, report, test, all, testdata)')
+    parser.add_argument('command', choices=['init', 'scrape', 'api', 'report', 'test', 'all', 'testdata', 'debug'], 
+                        help='Commande à exécuter (init, scrape, api, report, test, all, testdata, debug)')
     parser.add_argument('--max-pages', type=int, default=None,
                         help='Nombre maximum de pages à scraper par source (pour la commande scrape)')
     
@@ -94,6 +101,9 @@ def main():
                         logger.info(f"Limiting {source['name']} to {args.max_pages} pages")
             
             run_scraper()
+            
+        elif args.command == 'debug':
+            run_debug_scraper()
             
         elif args.command == 'api':
             run_api()
