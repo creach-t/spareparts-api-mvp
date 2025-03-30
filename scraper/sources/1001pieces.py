@@ -100,8 +100,8 @@ def scrape(search_terms=None, max_pages=3):
                 
                 soup = BeautifulSoup(response.content, 'lxml')
                 
-                # Extraction des produits (ajustez le sélecteur selon la structure HTML de 1001pieces.com)
-                products = soup.select('.js-product-miniature-wrapper')
+                # Correction du sélecteur basé sur l'analyse du site
+                products = soup.select('.product-miniature.js-product-miniature')
                 
                 if not products:
                     logger.info(f"Aucun produit trouvé pour '{term}' sur la page {page}")
@@ -112,40 +112,21 @@ def scrape(search_terms=None, max_pages=3):
                         # Extraction des données du produit
                         item = {}
                         
-                        # Référence - Ajustez selon la structure HTML
-                        reference_elem = product.select_one('.product-reference')
-                        if reference_elem:
-                            reference_text = reference_elem.text.strip()
-                            # Utilisation d'une expression régulière pour extraire la référence
-                            reference_match = re.search(r'Référence\s*:\s*([A-Za-z0-9\-]+)', reference_text)
-                            if reference_match:
-                                item['reference'] = reference_match.group(1)
-                            else:
-                                # Si pas de référence claire, on utilise l'ID du produit
-                                data_id = product.get('data-id-product')
-                                if data_id:
-                                    item['reference'] = f"1001P-{data_id}"
-                                else:
-                                    # Si toujours pas de référence, on passe au produit suivant
-                                    continue
+                        # ID du produit
+                        data_id = product.get('data-id-product')
+                        if data_id:
+                            item['reference'] = f"1001P-{data_id}"
                         else:
-                            # Si pas d'élément de référence, on vérifie s'il y a un data-id-product
-                            data_id = product.get('data-id-product')
-                            if data_id:
-                                item['reference'] = f"1001P-{data_id}"
-                            else:
-                                # Générer une référence unique basée sur le nom et la catégorie
-                                name_elem = product.select_one('.product-title')
-                                if name_elem:
-                                    name = name_elem.text.strip()
-                                    item['reference'] = f"1001P-{term[:3].upper()}-{hash(name) % 10000:04d}"
-                                else:
-                                    # Si toujours pas de référence, on passe au produit suivant
-                                    continue
+                            # Si pas d'ID, on passe au produit suivant
+                            continue
                         
                         # Nom du produit
                         name_elem = product.select_one('.product-title a')
-                        item['name'] = name_elem.text.strip() if name_elem else ""
+                        if name_elem:
+                            item['name'] = name_elem.text.strip()
+                        else:
+                            # Sans nom, on passe au produit suivant
+                            continue
                         
                         # URL du produit
                         if name_elem and 'href' in name_elem.attrs:
@@ -170,26 +151,20 @@ def scrape(search_terms=None, max_pages=3):
                                 item['price'] = float(price_match.group(1).replace(',', '.'))
                         
                         # Disponibilité
-                        availability_elem = product.select_one('.product-availability')
+                        availability_elem = product.select_one('.product-availabilities')
                         if availability_elem:
-                            availability_text = availability_elem.text.strip().lower()
-                            item['in_stock'] = "disponible" in availability_text or "en stock" in availability_text
+                            # Rechercher directement le texte "En stock"
+                            in_stock = "en stock" in availability_elem.text.strip().lower()
+                            item['in_stock'] = in_stock
                         else:
                             # Par défaut, on considère que le produit est en stock s'il est affiché
                             item['in_stock'] = True
-                        
-                        # Description (courte)
-                        description_elem = product.select_one('.product-description')
-                        if description_elem:
-                            item['description'] = description_elem.text.strip()
                         
                         # Catégorie basée sur le terme de recherche
                         item['category'] = term
                         
                         # Vérifier les données minimales requises
                         if item.get('reference') and item.get('name'):
-                            # Ajouter les données simulées pour ce mock
-                            # Remplacer par les vraies données une fois l'analyse du site effectuée
                             results.append(item)
                     
                     except Exception as e:
