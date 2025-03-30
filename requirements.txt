@@ -12,6 +12,7 @@ Flask==2.3.3
 Flask-RESTful==0.3.10
 Flask-SQLAlchemy==3.1.1
 Flask-Limiter==3.5.0
+redis==5.0.1  # Pour le stockage du rate limiting
 
 # Authentification
 Flask-HTTPAuth==4.8.0
@@ -19,3 +20,7 @@ Flask-HTTPAuth==4.8.0
 # Utilitaires
 python-dotenv==1.0.0
 schedule==1.2.1
+backoff==2.2.1  # Pour les mécanismes de reprise des scrapers
+
+# Tests
+pytest==7.4.0
