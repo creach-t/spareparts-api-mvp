@@ -14,12 +14,15 @@ from database.db import db_session, init_db
 from api.routes import api_bp
 
 # Configuration du logging
+if not os.path.exists(config.LOG_DIR):
+    os.makedirs(config.LOG_DIR, exist_ok=True)
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler('api.log')
+        logging.FileHandler(os.path.join(config.LOG_DIR, 'api.log'))
     ]
 )
 logger = logging.getLogger('spareparts-api')
@@ -31,12 +34,13 @@ app.config['SQLALCHEMY_DATABASE_URI'] = config.DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = config.SQLALCHEMY_TRACK_MODIFICATIONS
 app.config['SQLALCHEMY_ECHO'] = config.SQLALCHEMY_ECHO
 
-# Initialisation du limiteur de requêtes
+# Initialisation du limiteur de requêtes - utilisation d'un stockage Redis si disponible
+storage_uri = os.environ.get('RATE_LIMIT_STORAGE', "memory://")
 limiter = Limiter(
     app,
     key_func=get_remote_address,
     default_limits=[config.API_RATE_LIMIT],
-    storage_uri="memory://"
+    storage_uri=storage_uri
 )
 
 # Enregistrement du blueprint API
