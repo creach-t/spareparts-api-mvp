@@ -42,6 +42,13 @@ def run_api():
     from api.app import main
     main()
 
+def run_insert_test_data():
+    """Insère des données de test dans la base de données"""
+    logger.info("Insertion de données de test...")
+    from scripts.insert_test_data import insert_test_data
+    insert_test_data()
+    logger.info("Données de test insérées")
+
 def run_generate_report():
     """Génère un rapport de métriques du scraper"""
     logger.info("Génération du rapport de métriques...")
@@ -64,8 +71,8 @@ def run_generate_report():
 def main():
     """Point d'entrée principal"""
     parser = argparse.ArgumentParser(description="SpareParts API Runner")
-    parser.add_argument('command', choices=['init', 'scrape', 'api', 'report', 'all', 'test'], 
-                        help='Commande à exécuter (init, scrape, api, report, all, test)')
+    parser.add_argument('command', choices=['init', 'scrape', 'api', 'report', 'test', 'all', 'testdata'], 
+                        help='Commande à exécuter (init, scrape, api, report, test, all, testdata)')
     parser.add_argument('--max-pages', type=int, default=None,
                         help='Nombre maximum de pages à scraper par source (pour la commande scrape)')
     
@@ -93,6 +100,12 @@ def main():
             
         elif args.command == 'report':
             run_generate_report()
+            
+        elif args.command == 'testdata':
+            run_init_db()
+            api_key = run_create_test_key()
+            run_insert_test_data()
+            print(f"\nDonnées de test insérées. Utilisez cette clé API pour les requêtes: {api_key}\n")
             
         elif args.command == 'test':
             # Commande de test : init + scrape limité + rapport
