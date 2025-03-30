@@ -49,6 +49,8 @@ def load_metrics():
 def save_metrics(metrics):
     """Sauvegarde les métriques de scraping dans le fichier"""
     try:
+        # Ensure the directory exists
+        METRICS_FILE.parent.mkdir(parents=True, exist_ok=True)
         with open(METRICS_FILE, 'w') as f:
             json.dump(metrics, f, indent=2)
     except Exception as e:
@@ -199,6 +201,46 @@ def run_scraper_with_retry(source_config, supplier, metrics, max_retries=None):
                 save_metrics(metrics)
                 return None
 
+def ensure_suppliers_exist():
+    """
+    S'assure que tous les fournisseurs configurés existent dans la base de données
+    
+    Returns:
+        dict: Mapping des noms de fournisseurs vers les objets Supplier
+    """
+    suppliers_map = {}
+    
+    # Récupérer d'abord tous les fournisseurs existants
+    existing_suppliers = {supplier.name: supplier for supplier in Supplier.query.all()}
+    
+    # Parcourir les sources configurées
+    for source_config in config.SOURCES:
+        name = source_config['name']
+        
+        if name in existing_suppliers:
+            # Le fournisseur existe déjà
+            suppliers_map[name] = existing_suppliers[name]
+            logger.debug(f"Fournisseur {name} déjà existant dans la base de données")
+        elif source_config.get('enabled', False):
+            # Création d'un nouveau fournisseur
+            try:
+                website = source_config.get('website', '')
+                new_supplier = Supplier(
+                    name=name,
+                    website=website,
+                    created_at=datetime.utcnow()
+                )
+                db_session.add(new_supplier)
+                db_session.commit()
+                
+                suppliers_map[name] = new_supplier
+                logger.info(f"Nouveau fournisseur créé: {name} ({website})")
+            except Exception as e:
+                db_session.rollback()
+                logger.error(f"Erreur lors de la création du fournisseur {name}: {str(e)}")
+    
+    return suppliers_map
+
 def run_scrapers():
     """Exécute tous les scrapers configurés avec optimisation automatique"""
     logger.info("Démarrage du scraping...")
@@ -206,14 +248,12 @@ def run_scrapers():
     # Initialisation de la base de données si nécessaire
     init_db()
     
-    # Récupération des fournisseurs depuis la base de données
-    suppliers = Supplier.query.all()
-    if not suppliers:
-        logger.error("Aucun fournisseur trouvé dans la base de données")
-        return
+    # S'assurer que tous les fournisseurs existent
+    suppliers_map = ensure_suppliers_exist()
     
-    # Mapping des fournisseurs par nom pour un accès facile
-    suppliers_map = {supplier.name: supplier for supplier in suppliers}
+    if not suppliers_map:
+        logger.error("Aucun fournisseur disponible pour le scraping")
+        return
     
     # Chargement des métriques existantes
     metrics = load_metrics()
@@ -236,7 +276,7 @@ def run_scrapers():
     # Exécution de chaque scraper dans l'ordre de priorité
     for source_config in sorted_sources:
         if source_config['name'] not in suppliers_map:
-            logger.warning(f"Fournisseur {source_config['name']} non trouvé dans la base de données")
+            logger.warning(f"Fournisseur {source_config['name']} non disponible pour le scraping")
             continue
         
         supplier = suppliers_map[source_config['name']]
@@ -308,11 +348,19 @@ def process_results(results, supplier):
                     description=item.get('description'),
                     category=item.get('category'),
                     image_url=item.get('image_url'),
-                    created_at=datetime.utcnow()
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow()
                 )
                 db_session.add(part)
                 db_session.flush()  # Pour obtenir l'ID de la pièce
                 count_new += 1
+            else:
+                # Mise à jour des informations de la pièce
+                part.name = item.get('name', part.name)
+                part.description = item.get('description', part.description)
+                part.category = item.get('category', part.category)
+                part.image_url = item.get('image_url', part.image_url)
+                part.updated_at = datetime.utcnow()
             
             # Mise à jour de la disponibilité
             availability = Availability.query.filter_by(
