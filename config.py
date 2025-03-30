@@ -47,11 +47,10 @@ SOURCES = [
         'enabled': True,
         'module': 'scraper.sources.piecesdetachees24'
     },
-    # SosAccessoire désactivé pour éviter les problèmes de timeout
     {
         'name': 'SosAccessoire',
         'website': 'https://www.sosaccessoire.com/',
-        'enabled': False,  # Désactivé
+        'enabled': True,
         'module': 'scraper.sources.sosaccessoire'
     }
 ]
