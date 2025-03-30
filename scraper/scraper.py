@@ -324,93 +324,95 @@ def process_results(results, supplier):
         logger.warning(f"Aucun résultat de scraping pour {supplier.name}")
         return False, 0
     
+    logger.info(f"Traitement de {len(results)} produits pour {supplier.name}...")
     count_new = 0
     count_updated = 0
     count_errors = 0
     
-    # On traite tout en une seule transaction pour assurer la cohérence
     try:
-        for item in results:
+        # Traitement par lots pour éviter des transactions trop longues
+        batch_size = 50
+        for i in range(0, len(results), batch_size):
+            batch = results[i:i+batch_size]
+            logger.info(f"Traitement du lot {(i//batch_size)+1}/{(len(results)//batch_size)+1} ({len(batch)} produits)")
+            
             try:
-                # Vérification des données minimales requises
-                if not item.get('reference') or not item.get('name'):
-                    logger.warning(f"Élément ignoré: données manquantes - {item}")
-                    continue
+                for item in batch:
+                    # Vérification des données minimales requises
+                    if not item.get('reference') or not item.get('name'):
+                        logger.warning(f"Élément ignoré: données manquantes - {item}")
+                        continue
                     
-                # Recherche si la pièce existe déjà
-                part = Part.query.filter_by(reference=item['reference']).first()
-                
-                # Si la pièce n'existe pas, on la crée
-                if not part:
-                    part = Part(
-                        reference=item['reference'],
-                        name=item['name'],
-                        description=item.get('description'),
-                        category=item.get('category'),
-                        image_url=item.get('image_url'),
-                        created_at=datetime.utcnow(),
-                        updated_at=datetime.utcnow()
-                    )
-                    db_session.add(part)
-                    # On fait un flush pour obtenir l'ID de la pièce, mais pas de commit
-                    db_session.flush()  
-                    count_new += 1
-                else:
-                    # Mise à jour des informations de la pièce
-                    part.name = item.get('name', part.name)
-                    part.description = item.get('description', part.description)
-                    part.category = item.get('category', part.category)
-                    part.image_url = item.get('image_url', part.image_url)
-                    part.updated_at = datetime.utcnow()
-                    count_updated += 1
-                
-                # Mise à jour de la disponibilité
-                availability = Availability.query.filter_by(
-                    part_id=part.id,
-                    supplier_id=supplier.id
-                ).first()
-                
-                if not availability:
-                    availability = Availability(
+                    # Recherche si la pièce existe déjà
+                    part = Part.query.filter_by(reference=item['reference']).first()
+                    
+                    # Si la pièce n'existe pas, on la crée
+                    if not part:
+                        part = Part(
+                            reference=item['reference'],
+                            name=item['name'],
+                            description=item.get('description'),
+                            category=item.get('category'),
+                            image_url=item.get('image_url'),
+                            created_at=datetime.utcnow(),
+                            updated_at=datetime.utcnow()
+                        )
+                        db_session.add(part)
+                        count_new += 1
+                    else:
+                        # Mise à jour des informations de la pièce
+                        part.name = item.get('name', part.name)
+                        part.description = item.get('description', part.description)
+                        part.category = item.get('category', part.category)
+                        part.image_url = item.get('image_url', part.image_url)
+                        part.updated_at = datetime.utcnow()
+                        count_updated += 1
+                    
+                    # On doit faire un flush pour avoir l'ID de la pièce si elle est nouvelle
+                    db_session.flush()
+                    
+                    # Mise à jour de la disponibilité
+                    availability = Availability.query.filter_by(
                         part_id=part.id,
-                        supplier_id=supplier.id,
-                        price=item.get('price'),
-                        in_stock=item.get('in_stock', False),
-                        url=item.get('url'),
-                        last_checked=datetime.utcnow()
-                    )
-                    db_session.add(availability)
-                else:
-                    availability.price = item.get('price', availability.price)
-                    availability.in_stock = item.get('in_stock', availability.in_stock)
-                    availability.url = item.get('url', availability.url)
-                    availability.last_checked = datetime.utcnow()
+                        supplier_id=supplier.id
+                    ).first()
+                    
+                    if not availability:
+                        availability = Availability(
+                            part_id=part.id,
+                            supplier_id=supplier.id,
+                            price=item.get('price'),
+                            in_stock=item.get('in_stock', False),
+                            url=item.get('url'),
+                            last_checked=datetime.utcnow()
+                        )
+                        db_session.add(availability)
+                    else:
+                        availability.price = item.get('price', availability.price)
+                        availability.in_stock = item.get('in_stock', availability.in_stock)
+                        availability.url = item.get('url', availability.url)
+                        availability.last_checked = datetime.utcnow()
+                
+                # Commit après chaque lot
+                db_session.commit()
+                logger.info(f"Lot {(i//batch_size)+1} enregistré avec succès")
                 
             except Exception as e:
-                count_errors += 1
-                logger.error(f"Erreur lors du traitement de l'élément {item.get('reference')}: {str(e)}")
-                continue
+                # En cas d'erreur, on rollback ce lot et on continue
+                db_session.rollback()
+                count_errors += len(batch)
+                logger.error(f"Erreur lors du traitement du lot {(i//batch_size)+1}: {str(e)}")
+                logger.error(traceback.format_exc())
         
-        # On commit une seule fois à la fin
-        try:
-            db_session.commit()
-            logger.info(f"Données sauvegardées avec succès. {count_new} nouvelles pièces, {count_updated} mises à jour.")
-        except Exception as e:
-            db_session.rollback()
-            logger.error(f"Erreur lors de l'enregistrement des données: {str(e)}")
-            count_errors += count_new + count_updated
-            count_new = 0
-            count_updated = 0
-            
+        logger.info(f"Traitement terminé. {count_new} nouvelles pièces, {count_updated} mises à jour, {count_errors} erreurs")
+        return True, count_new + count_updated
+        
     except Exception as e:
+        # En cas d'erreur globale
         db_session.rollback()
         logger.error(f"Erreur globale lors du traitement des résultats: {str(e)}")
         logger.error(traceback.format_exc())
         return False, 0
-    
-    total_processed = count_new + count_updated
-    logger.info(f"Résultats traités pour {supplier.name}: {count_new} nouvelles pièces, {count_updated} mises à jour, {count_errors} erreurs")
-    return count_errors < len(results) // 2, total_processed  # Succès si moins de la moitié des éléments sont en erreur
 
 if __name__ == "__main__":
     try:
